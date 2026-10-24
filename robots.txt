@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ainamganesh.github.io/bubble-typing/sitemap.xml
