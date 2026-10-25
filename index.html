@@ -18,6 +18,27 @@
 <meta property="og:description" content="Master touch typing with interactive bubble popping practice across 30 sequential stages!">
 <meta property="og:image" content="icons/icon-512.png">
 <meta property="og:type" content="website">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Bubble Pop — Master Touch Typing",
+  "url": "https://ainamganesh.github.io/bubble-typing/",
+  "applicationCategory": "EducationalGame",
+  "operatingSystem": "All",
+  "genre": "Educational",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "description": "Interactive browser touch typing master practice game with 30 sequential stages, word drills, and real-time WPM speed tracker.",
+  "author": {
+    "@type": "Person",
+    "name": "Iyanam Ganesh"
+  }
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -588,10 +609,12 @@ html, body {
 
     <!-- ALL CONTROLS & STATS CONCENTRATED TOGETHER ON THE RIGHT -->
     <div id="nav-right">
+      <div class="mini-pill" title="Personal Best High Score"><span>Best</span><b id="best-val" style="color:#fbbf24;">0</b></div>
       <div class="mini-pill"><span>Score</span><b id="sval">0</b></div>
       <div class="mini-pill"><span>Lives</span><b id="lives">♥♥♥</b></div>
       <div class="mini-pill"><span>Combo</span><b id="cval">x1</b></div>
       <div class="mini-pill"><span>Stg</span><b id="stgnum">1/30</b></div>
+      <button id="btn-share" class="mini-btn" onclick="shareGame()" title="Share on WhatsApp" style="color:#4ade80; border-color:rgba(74,222,128,0.4);">📤 Share</button>
       <button id="btn-install" class="mini-btn" style="display:none; color:#38bdf8; border-color:rgba(56,189,248,0.4);" title="Install App">📲 Install</button>
       <button id="btn-music" class="mini-btn" onclick="toggleMusic()" title="Toggle Music">🎵 Music: ON</button>
       <button id="btn-fullscreen" class="mini-btn" onclick="toggleFullScreen()" title="Toggle Fullscreen">⛶ Fullscreen</button>
@@ -604,6 +627,9 @@ html, body {
     <div id="stg-scroll"></div>
     <div id="prog-meta-compact">
       <span id="speed-label" class="spS">🐢 Slow</span>
+      <span id="wpm-val" style="font-size:11px; font-weight:800; color:#38bdf8;">⚡ 0 WPM</span>
+      <span id="acc-val" style="font-size:11px; font-weight:800; color:#a78bfa;">🎯 100% Acc</span>
+      <span id="streak-val" style="font-size:11px; font-weight:800; color:#fbbf24;" title="Daily Streak">🔥 1d</span>
       <span id="prog-label">0 / 25 pops</span>
     </div>
   </div>
@@ -746,6 +772,8 @@ let bubbles = [], spawnTmr = null, stageProgress = 0;
 let done = new Set(), curTheme = -1, curWR = -1;
 let musicOn = true, AC_ctx = null, bgTimer = null;
 let wrWordIdx = 0, wrLetterIdx = 0, wrTmrIv = null, wrTimeLeft = 0;
+let totalKeystrokes = 0, correctKeystrokes = 0, sessionStartTime = null;
+let highScore = parseInt(localStorage.getItem('bp_highscore') || '0');
 
 // ── FULLSCREEN TOGGLE ─────────────────────────────────
 function toggleFullScreen() {
@@ -1065,6 +1093,66 @@ function showIntro(cb) {
   setTimeout(() => document.addEventListener('keydown', kh, true), 200);
 }
 
+// ── TYPING METRICS, STREAKS & SHARING ───────────────
+function getWPM() {
+  if (!sessionStartTime || correctKeystrokes === 0) return 0;
+  const elapsedMins = (Date.now() - sessionStartTime) / 60000;
+  return Math.round((correctKeystrokes / 5) / Math.max(elapsedMins, 0.05));
+}
+
+function getAcc() {
+  if (totalKeystrokes === 0) return 100;
+  return Math.max(0, Math.min(100, Math.round((correctKeystrokes / totalKeystrokes) * 100)));
+}
+
+function updateTypingMetrics() {
+  const wpmEl = document.getElementById('wpm-val');
+  const accEl = document.getElementById('acc-val');
+  if (wpmEl) wpmEl.textContent = '⚡ ' + getWPM() + ' WPM';
+  if (accEl) accEl.textContent = '🎯 ' + getAcc() + '% Acc';
+  
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('bp_highscore', highScore);
+    const bEl = document.getElementById('best-val');
+    if (bEl) bEl.textContent = highScore;
+  }
+}
+
+function updateDailyStreak() {
+  const today = new Date().toISOString().slice(0, 10);
+  const lastDate = localStorage.getItem('bp_last_date');
+  let streak = parseInt(localStorage.getItem('bp_streak') || '1');
+  if (!lastDate) {
+    streak = 1;
+  } else if (lastDate !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    if (lastDate === yesterday) streak += 1;
+    else streak = 1;
+  }
+  localStorage.setItem('bp_last_date', today);
+  localStorage.setItem('bp_streak', streak);
+  const el = document.getElementById('streak-val');
+  if (el) el.textContent = '🔥 ' + streak + 'd';
+}
+
+function shareGame() {
+  const wpm = getWPM();
+  const acc = getAcc();
+  const text = `🫧 I scored ${score} pts at ${wpm} WPM (${acc}% accuracy) on Bubble Pop Typing Game! Can you beat my record? Play free here: https://ainamganesh.github.io/bubble-typing/`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: '🫧 Bubble Pop — Master Touch Typing',
+      text: text,
+      url: 'https://ainamganesh.github.io/bubble-typing/'
+    }).catch(() => {});
+  } else {
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  }
+}
+
 // ── GAME CORE ─────────────────────────────────────────
 function startGame() {
   score = 0;
@@ -1073,6 +1161,11 @@ function startGame() {
   stageProgress = 0;
   running = true;
   bubbles = [];
+  totalKeystrokes = 0;
+  correctKeystrokes = 0;
+  sessionStartTime = Date.now();
+  updateTypingMetrics();
+  updateDailyStreak();
   document.getElementById('sval').textContent = '0';
   document.getElementById('cval').textContent = 'x1';
   document.getElementById('lives').textContent = '♥♥♥';
@@ -1168,7 +1261,7 @@ function loseLife() {
   document.getElementById('cval').textContent = 'x1';
   document.getElementById('lives').textContent = '♥'.repeat(Math.max(0, lives)) + '♡'.repeat(Math.max(0, 3 - lives));
   if (lives <= 0) {
-    endGame('<h2 style="color:#ffffff;margin:0">Game Over!</h2><p style="color:rgba(255,255,255,.9);margin:8px 0 16px">Score: ' + score + '<br>Never stop practicing! 💪</p><button class="ovbtn" onclick="startGame()">Try Again</button>');
+    endGame('<h2 style="color:#ffffff;margin:0">Game Over!</h2><p style="color:rgba(255,255,255,.9);margin:8px 0 14px">Score: <b>' + score + '</b> &nbsp;•&nbsp; Speed: <b>' + getWPM() + ' WPM</b><br>Accuracy: <b>' + getAcc() + '%</b> &nbsp;•&nbsp; Best: <b>' + highScore + '</b><br>Never stop practicing! 💪</p><button class="ovbtn" onclick="startGame()">Try Again</button><br><button class="ovbtn" onclick="shareGame()" style="background:linear-gradient(135deg,#22c55e,#16a34a);margin-top:10px;font-size:14px;padding:8px 24px;">📤 Challenge Friends on WhatsApp</button>');
   }
 }
 
@@ -1191,7 +1284,7 @@ function onStageDone() {
 function advanceLetterStage() {
   if (SI >= STAGES.length - 1) {
     done.add('s' + SI);
-    endGame('<h2 style="color:#fde047;margin:0">🏆 TYPING CHAMPION!</h2><p style="color:rgba(255,255,255,.95);margin:10px 0 18px;font-size:16px">All 30 stages mastered!<br>Final Score: <b>' + score + '</b> 🎉</p><button class="ovbtn" onclick="startGame()">Play Again</button>');
+    endGame('<h2 style="color:#fde047;margin:0">🏆 TYPING CHAMPION!</h2><p style="color:rgba(255,255,255,.95);margin:10px 0 16px;font-size:16px">All 30 stages mastered!<br>Final Score: <b>' + score + '</b> 🎉<br>Speed: <b>' + getWPM() + ' WPM</b> &nbsp;•&nbsp; Accuracy: <b>' + getAcc() + '%</b></p><button class="ovbtn" onclick="startGame()">Play Again</button><br><button class="ovbtn" onclick="shareGame()" style="background:linear-gradient(135deg,#22c55e,#16a34a);margin-top:10px;font-size:14px;padding:8px 24px;">📤 Share Your Champion Trophy</button>');
     return;
   }
   const prevTheme = STAGES[SI].theme;
@@ -1298,6 +1391,7 @@ document.addEventListener('keydown', e => {
   // ---- LETTER BUBBLE MODE ----
   if (gameMode === 'letters' && running) {
     if (!STAGES[SI].letters.includes(key)) return;
+    totalKeystrokes++;
 
     // Filter active bubbles
     const candidates = bubbles.filter(b => 
@@ -1307,6 +1401,8 @@ document.addEventListener('keydown', e => {
     );
 
     if (candidates.length > 0) {
+      correctKeystrokes++;
+      updateTypingMetrics();
       // Sort by vertical coordinate: smallest top is highest on screen
       candidates.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
       const b = candidates[0];
@@ -1338,14 +1434,18 @@ document.addEventListener('keydown', e => {
       combo = 1;
       document.getElementById('cval').textContent = 'x1';
       popSnd(false);
+      updateTypingMetrics();
     }
 
   // ---- WORD ROUND MODE ----
   } else if (gameMode === 'words') {
     const word = WORD_ROUNDS[curWR].words[wrWordIdx];
     if (!word) return;
+    totalKeystrokes++;
     const expected = word[wrLetterIdx];
     if (key === expected) {
+      correctKeystrokes++;
+      updateTypingMetrics();
       const el = document.getElementById('wb-' + wrLetterIdx);
       if (el) {
         el.classList.remove('current', 'wrong');
@@ -1367,6 +1467,7 @@ document.addEventListener('keydown', e => {
         document.getElementById('wr-feedback').textContent = '';
       }
     } else {
+      updateTypingMetrics();
       const el = document.getElementById('wb-' + wrLetterIdx);
       if (el) {
         el.classList.add('wrong');
@@ -1419,6 +1520,8 @@ buildKB();
 buildBar();
 updateKB();
 setArena(0, false);
+document.getElementById('best-val').textContent = highScore;
+updateDailyStreak();
 
 // ── PWA SERVICE WORKER & INSTALL PROMPT ───────────────
 if ('serviceWorker' in navigator) {
